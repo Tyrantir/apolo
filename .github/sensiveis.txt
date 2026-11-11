@@ -1,0 +1,5 @@
+# Caminhos que exigem aprovação humana antes do Claude Merge (um regex ERE por linha, contra o path do arquivo).
+# Segredo/config e as próprias automações. Expandir quando backend/frontend existirem
+# (ex.: migrações de schema, assinatura de webhook/JWT do canal).
+\.env($|\.)
+^\.github/

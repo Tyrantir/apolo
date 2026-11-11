@@ -1,0 +1,47 @@
+name: Build
+# Check objetivo do PR: barra segredo versionado e, quando existirem, compila backend e frontend.
+# O Claude Merge exige este workflow com sucesso no commit atual antes de mesclar.
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review, reopened]
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+
+      - name: Barra segredo versionado
+        run: |
+          set -euo pipefail
+          proibidos=$(git ls-files | grep -i -E '(^|/)\.env(\.[a-z]+)?$|application-local\.(ya?ml|properties)$|\.(pfx|p12|pem|key)$' || true)
+          if [ -n "$proibidos" ]; then
+            echo "::error::Arquivo de segredo versionado:"; echo "$proibidos"; exit 1
+          fi
+          # Senha/segredo literal; interpolação ({var}, ${...}, variável de ambiente) é permitida.
+          senhas=$(git grep -n -i -E '(password|senha|secret|token)["'"'"']?\s*[:=]\s*["'"'"'][^{$"'"'"']{8,}["'"'"']' -- . ':!*.md' || true)
+          if [ -n "$senhas" ]; then
+            echo "::error::Possível segredo literal no código:"; echo "$senhas"; exit 1
+          fi
+
+      # Backend ainda não existe (projeto em fase de especificação, ver CLAUDE.md).
+      # Quando nascer `chat-suporte-backend`/`backend/` com pom.xml ou build.gradle, adicionar aqui
+      # os passos de setup + build (Maven/Gradle), nos mesmos moldes do passo abaixo do frontend.
+      - name: Build backend
+        if: hashFiles('backend/pom.xml', 'backend/build.gradle*') != ''
+        run: |
+          echo "::error::backend/ existe mas este workflow ainda não sabe buildá-lo. Atualize build.yml."
+          exit 1
+
+      - name: Build frontend
+        if: hashFiles('frontend/package.json') != ''
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build --if-present
